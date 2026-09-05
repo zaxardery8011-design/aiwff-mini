@@ -158,6 +158,15 @@ if (-not (Test-Path -LiteralPath $soul)) {
   Write-Output ("SETUP ERROR: 找不到 {0}，請把 `$root 改成你剛才安裝的路徑" -f $soul)
   return
 }
+$resolvedRoot = (Resolve-Path -LiteralPath $root).Path
+$titleLine = Get-Content -LiteralPath $soul -Encoding UTF8 | Where-Object { $_ -match "^\s*#+\s*(.+)\s*$" } | Select-Object -First 1
+$brainTitle = "(no title)"
+if ($titleLine -and ($titleLine -match "^\s*#+\s*(.+)\s*$")) {
+  $brainTitle = $Matches[1].Trim()
+  if (-not $brainTitle) { $brainTitle = "(no title)" }
+}
+Write-Output ("受測根目錄：{0}" -f $resolvedRoot)
+Write-Output ("受測大腦：{0}" -f $brainTitle)
 $backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
 Copy-Item -LiteralPath $soul -Destination $backup -Force
 try {
@@ -183,6 +192,8 @@ try {
 ### 步驟 6 — 回報
 
 依序講：
+
+先確認 `受測根目錄` 是你剛才安裝的路徑，不是就改 `$root` 重跑。
 
 1. 步驟 1 你實際跑了哪幾項檢查、哪幾項超出權限
 2. 步驟 3 動手前給他看的那份清單

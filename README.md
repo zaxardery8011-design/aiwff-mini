@@ -158,6 +158,15 @@ if (-not (Test-Path -LiteralPath $soul)) {
   Write-Output ("SETUP ERROR: Cannot find {0}. Change `$root to the path you just installed into." -f $soul)
   return
 }
+$resolvedRoot = (Resolve-Path -LiteralPath $root).Path
+$titleLine = Get-Content -LiteralPath $soul -Encoding UTF8 | Where-Object { $_ -match "^\s*#+\s*(.+)\s*$" } | Select-Object -First 1
+$brainTitle = "(no title)"
+if ($titleLine -and ($titleLine -match "^\s*#+\s*(.+)\s*$")) {
+  $brainTitle = $Matches[1].Trim()
+  if (-not $brainTitle) { $brainTitle = "(no title)" }
+}
+Write-Output ("TESTING ROOT: {0}" -f $resolvedRoot)
+Write-Output ("TESTING BRAIN: {0}" -f $brainTitle)
 $backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
 Copy-Item -LiteralPath $soul -Destination $backup -Force
 try {
@@ -183,6 +192,8 @@ try {
 ### Step 6 - Report Back
 
 Report in this order:
+
+First confirm `TESTING ROOT` is the path you just installed into. If not, change `$root` and run it again.
 
 1. Which Step 1 checks you actually ran, and which ones were outside your permissions
 2. The file list you showed before acting in Step 3
