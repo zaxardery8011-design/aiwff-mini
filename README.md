@@ -103,7 +103,7 @@ Rules while running:
 
 ### Step 4 - Help Them Fill In the Soul
 
-`SOUL.md` is installed as an empty template. It has **four places** to fill in: **Who I am / Who my human is, including what to call them / How we work together / Soul anchor**.
+`SOUL.md` is installed as an empty template. It has **four sections and five placeholders** to fill in: **Who I am / Who my human is, including what to call them / How we work together / Soul anchor**. The "what to call them" placeholder is folded into the second section.
 
 **Do not fill it in and call the job done.** Ask questions:
 
@@ -150,10 +150,14 @@ To prove drift warnings, run this destructive self-test only after `SOUL.md` is 
 
 ```powershell
 pwsh -NoProfile -Command '
-$root = (Resolve-Path ".").Path # Change this to the path you just installed into; by default it uses the current directory
-[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$root = "$HOME/.aiwff-mini" # Change this line if you installed somewhere else
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8 # Keeps Chinese drift warnings readable; detection still has an ASCII fallback below.
 $soul = Join-Path $root "SOUL.md"
 $hook = Join-Path $root "session-start.ps1"
+if (-not (Test-Path -LiteralPath $soul)) {
+  Write-Output ("SETUP ERROR: Cannot find {0}. Change `$root to the path you just installed into." -f $soul)
+  return
+}
 $backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
 Copy-Item -LiteralPath $soul -Destination $backup -Force
 try {
@@ -161,6 +165,7 @@ try {
   Add-Content -LiteralPath $soul -Value "drift-test"
   $output = (& pwsh -NoProfile -File $hook) | Out-String
   $alarmFound = ($output -match "SOUL.md 與 baseline 不符") -or
+    # Do not remove: this ASCII fallback is what survives non-UTF-8 parent shells.
     (($output -match "baseline") -and ($output -match "expected="))
   if ($alarmFound) {
     Write-Output "DRIFT ALARM: PASS"
