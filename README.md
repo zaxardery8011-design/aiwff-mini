@@ -54,9 +54,10 @@ Check whether your current directory is this tool's own source tree, not someone
 
 **There is only one stop condition**: the marker file `kit/.dev-tree` exists. It appears only in the author's working directory and is not committed to the repo, so a copy you got from `git clone` will not have it.
 
-The other two checks are supporting signals. **On their own, they are not a reason to stop**, but you should still report them:
+The other checks are supporting signals. **On their own, they are not a reason to stop**, but you should still report them:
 
 - Does the current path contain fragments such as `docs/`, `dist-src/`, or `open_source_prep/`?
+- Does the git remote point to this project's upstream?
 - Does the current directory have uncommitted local changes?
 
 > Warning: **A `git clone` copy normally has `.git`, and its remote normally points to this project's upstream. That is normal and does not count as a match.** Every legitimate copy looks like that; using it as a stop condition would block every user.
@@ -121,13 +122,14 @@ Remind them: `SOUL.md` is loaded on every turn. **Do not put anything there that
 
 ### Step 5 - Acceptance Check
 
-After the soul is filled in, run the install script's built-in self-check. All checks must pass:
+After the soul is filled in, run the install script's built-in self-check, then run the drift self-test below. All six checks must pass:
 
 1. Directory structure exists
 2. `SOUL.md` is read-only
 3. Baseline signature exists and matches the current hash of `SOUL.md`
 4. SessionStart hook is configured
 5. Memory index file exists
+6. Drift warning is proven by a temporary change to `SOUL.md`, followed by a restore
 
 Then **start a new chat** and confirm that the beginning really includes the injected `SOUL.md` content. This is the only proof that the system has actually come alive.
 
@@ -136,9 +138,33 @@ Then **start a new chat** and confirm that the beginning really includes the inj
 > cd ~/.aiwff-mini
 > claude
 > ```
+> Open Claude Code in `~/.aiwff-mini/`（開在 `~/.aiwff-mini/`）. You can verify the directory before starting it with:
+> ```powershell
+> pwsh -NoProfile -Command '(Resolve-Path "$HOME/.aiwff-mini").Path'
+> ```
 > The hook is registered in `~/.aiwff-mini/.claude/settings.json`. That is a **project-level** setting, so it only applies inside that directory. If you start the chat from another folder, the soul will not be injected, and there will be **no error message**. You may think installation succeeded when it did not.
 >
 > To make it work from any directory, merge the hook into your global `~/.claude/settings.json`. That is an optional integration step; show the change first and make a backup before editing it.
+
+To prove drift warnings, run this destructive self-test only after `SOUL.md` is filled in. It backs up the file, changes one line, runs the hook, checks for the hash warning, then restores the file:
+
+```powershell
+pwsh -NoProfile -Command '
+$root = Join-Path $HOME ".aiwff-mini"
+$soul = Join-Path $root "SOUL.md"
+$hook = Join-Path $root "session-start.ps1"
+$backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
+Copy-Item -LiteralPath $soul -Destination $backup -Force
+try {
+  Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $false
+  Add-Content -LiteralPath $soul -Value "drift-test"
+  & pwsh -NoProfile -File $hook | Select-String -Pattern "SOUL.md 與 baseline 不符"
+} finally {
+  Copy-Item -LiteralPath $backup -Destination $soul -Force
+  Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
+  Remove-Item -LiteralPath $backup -Force
+}'
+```
 
 ### Step 6 - Report Back
 
@@ -146,7 +172,7 @@ Report in this order:
 
 1. Which Step 1 checks you actually ran, and which ones were outside your permissions
 2. The file list you showed before acting in Step 3
-3. The result of each of the five acceptance checks in Step 5
+3. The result of each of the six acceptance checks in Step 5
 4. Whether a new chat actually injected the soul; this is the most important item
 5. Anything you guessed, bypassed, or could not verify
 
@@ -160,9 +186,13 @@ If any item fails, say it failed and stop. **Do not edit the script or template 
 ~/.aiwff-mini/
 |-- SOUL.md          <- identity, read-only, loaded every turn
 |-- CLAUDE.md        <- working rules
+|-- session-start.ps1 <- SessionStart hook that injects SOUL.md and checks drift
+|-- .claude/
+|   `-- settings.json <- project-level hook registration
 |-- memory/
 |   `-- MEMORY.md    <- memory index
-`-- .soul_baseline/  <- integrity signature
+`-- .soul_baseline/
+    `-- baseline.json <- integrity signature
 ```
 
 ## Definition of Alive

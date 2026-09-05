@@ -54,9 +54,10 @@
 
 **停止條件只有一個**：`kit/.dev-tree` 這個標記檔存在。它只會出現在作者的工作目錄裡，不會被提交進 repo——所以你 `git clone` 下來的副本不會有它。
 
-另外兩項是輔助訊號，**單獨命中不構成停止理由**，但要一併回報：
+另外幾項是輔助訊號，**單獨命中不構成停止理由**，但要一併回報：
 
 - 當前路徑裡有沒有 `docs/`、`dist-src/`、`open_source_prep/` 這些片段？
+- git remote 有沒有指向本專案上游？
 - 當前目錄有沒有未提交的本地變更？
 
 > ⚠️ **`git clone` 下來會有 `.git`、remote 也會指向本專案上游，那是正常的，不算命中。** 每一份合法副本都長這樣，拿它當停止條件會把所有使用者擋在門外。
@@ -121,13 +122,14 @@
 
 ### 步驟 5 — 驗收
 
-填完靈魂後，跑安裝腳本內建的自我檢查。要全部通過：
+填完靈魂後，跑安裝腳本內建的自我檢查，再跑下面的漂移自測。六項都要通過：
 
 1. 目錄結構建好了
 2. `SOUL.md` 設成唯讀
 3. baseline 簽章存在，且跟 `SOUL.md` 現在的 hash 對得上
 4. SessionStart hook 設定好了
 5. 記憶索引檔建好了
+6. 漂移告警真的會觸發：先備份 `SOUL.md`，改一個字，跑 hook 看到 hash 不符告警，再還原
 
 然後**開一個新對話**，確認開頭真的有 `SOUL.md` 的內容被注入——這是唯一能證明它真的活起來的方法。
 
@@ -136,9 +138,33 @@
 > cd ~/.aiwff-mini
 > claude
 > ```
+> 換句話說：Claude Code 要**開在 `~/.aiwff-mini/`**。開之前可以先用這行驗證你站在哪：
+> ```powershell
+> pwsh -NoProfile -Command '(Resolve-Path "$HOME/.aiwff-mini").Path'
+> ```
 > hook 註冊在 `~/.aiwff-mini/.claude/settings.json`，是**專案級**設定，只在這個目錄底下生效。在別的資料夾開對話，靈魂不會被注入，**而且不會有任何錯誤訊息**——你會以為裝好了。
 >
 > 想讓它在任何目錄都生效，就要把 hook 併進你的全域 `~/.claude/settings.json`。那是可選的整合步驟，動手前一樣要先給人看、先備份。
+
+漂移告警自測是破壞性測試，只在 `SOUL.md` 填完後做。這行會先備份、改一個字、跑 hook、確認看到 hash 不符告警，最後還原並鎖回唯讀：
+
+```powershell
+pwsh -NoProfile -Command '
+$root = Join-Path $HOME ".aiwff-mini"
+$soul = Join-Path $root "SOUL.md"
+$hook = Join-Path $root "session-start.ps1"
+$backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
+Copy-Item -LiteralPath $soul -Destination $backup -Force
+try {
+  Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $false
+  Add-Content -LiteralPath $soul -Value "drift-test"
+  & pwsh -NoProfile -File $hook | Select-String -Pattern "SOUL.md 與 baseline 不符"
+} finally {
+  Copy-Item -LiteralPath $backup -Destination $soul -Force
+  Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
+  Remove-Item -LiteralPath $backup -Force
+}'
+```
 
 ### 步驟 6 — 回報
 
@@ -146,7 +172,7 @@
 
 1. 步驟 1 你實際跑了哪幾項檢查、哪幾項超出權限
 2. 步驟 3 動手前給他看的那份清單
-3. 步驟 5 五項驗收各自的結果
+3. 步驟 5 六項驗收各自的結果
 4. 新對話有沒有真的注入靈魂（這項最重要）
 5. 任何你用猜的、繞過的、或沒辦法確認的事
 
@@ -160,9 +186,13 @@
 ~/.aiwff-mini/
 ├── SOUL.md          ← 身份，唯讀，每 turn 載入
 ├── CLAUDE.md        ← 工作規則
+├── session-start.ps1 ← SessionStart hook，負責注入 SOUL.md 與檢查漂移
+├── .claude/
+│   └── settings.json ← 專案級 hook 註冊
 ├── memory/
 │   └── MEMORY.md    ← 記憶索引
-└── .soul_baseline/  ← 完整性簽章
+└── .soul_baseline/
+    └── baseline.json ← 完整性簽章
 ```
 
 ## 站起來的定義

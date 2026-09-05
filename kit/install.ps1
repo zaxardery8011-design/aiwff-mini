@@ -1,4 +1,5 @@
-﻿[CmdletBinding()]
+﻿#Requires -Version 7.0
+[CmdletBinding()]
 param(
     [string]$InstallRoot = (Join-Path $HOME ".aiwff-mini"),
     [Parameter(Mandatory = $true)]
@@ -178,6 +179,22 @@ function ConvertTo-PowerShellSingleQuotedString {
     return "'" + ($Value -replace "'", "''") + "'"
 }
 
+function Get-OptionalGitOutput {
+    param([string[]]$Arguments)
+
+    try {
+        $git = Get-Command git -ErrorAction SilentlyContinue
+        if (-not $git) { return $null }
+
+        $output = & $git.Source @Arguments 2>$null
+        if ($LASTEXITCODE -ne 0) { return $null }
+
+        return (($output | Out-String).Trim())
+    } catch {
+        return $null
+    }
+}
+
 function Merge-SessionStartHook {
     param(
         [string]$SettingsPath,
@@ -247,6 +264,33 @@ try {
 
     $InstallRoot = [System.IO.Path]::GetFullPath($InstallRoot)
     $KitSource = [System.IO.Path]::GetFullPath($KitSource)
+    $sourceRoot = Split-Path -Parent $KitSource
+    $devTreeMarker = Join-Path $KitSource ".dev-tree"
+
+    if (Test-Path -LiteralPath $devTreeMarker -PathType Leaf) {
+        throw "Refusing to install from the author's development tree: found kit/.dev-tree at $devTreeMarker"
+    }
+
+    Write-Output "開發樹防呆檢查: kit/.dev-tree 未命中（唯一停止條件）"
+    if (($sourceRoot -replace '\\', '/') -match '(^|/)(docs|dist-src|open_source_prep)(/|$)') {
+        Write-Output ("輔助訊號: source path contains docs/dist-src/open_source_prep fragment: " + $sourceRoot + "（只提示，不作為停止條件）")
+    } else {
+        Write-Output ("輔助訊號: source path fragment 未命中: " + $sourceRoot)
+    }
+
+    $gitRemote = Get-OptionalGitOutput -Arguments @("-C", $sourceRoot, "remote", "get-url", "origin")
+    if ($gitRemote) {
+        Write-Output ("輔助訊號: git origin remote=" + $gitRemote + "（clone copy 會命中，這只提示，不作為停止條件）")
+    } else {
+        Write-Output "輔助訊號: git origin remote 不可查或不存在（只提示，不作為停止條件）"
+    }
+
+    $gitChanges = Get-OptionalGitOutput -Arguments @("-C", $sourceRoot, "status", "--porcelain")
+    if ($gitChanges) {
+        Write-Output "輔助訊號: git local changes present（只提示，不作為停止條件）"
+    } else {
+        Write-Output "輔助訊號: git local changes 未命中或不可查（只提示，不作為停止條件）"
+    }
 
     Write-Output ("aiwff-mini 安裝目標: " + $InstallRoot)
     Write-Output ("主腦名稱: " + $BrainName)
@@ -402,6 +446,9 @@ exit 0
     Write-Check -Name "baseline 簽章存在且對得上 SOUL.md" -Ok $baselineOk
     Write-Check -Name "SessionStart hook 設定好了" -Ok $settingsOk
     Write-Check -Name "記憶索引檔建好了" -Ok $memoryOk
+    Write-Output ""
+    Write-Output ("開新對話時，Claude Code 要開在安裝根目錄: " + $InstallRoot)
+    Write-Output ("可先驗證: pwsh -NoProfile -Command ""(Resolve-Path '" + ($InstallRoot -replace "'", "''") + "').Path""")
 
     if ($script:Failed) {
         exit 1
