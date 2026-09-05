@@ -150,7 +150,8 @@ To prove drift warnings, run this destructive self-test only after `SOUL.md` is 
 
 ```powershell
 pwsh -NoProfile -Command '
-$root = Join-Path $HOME ".aiwff-mini"
+$root = (Resolve-Path ".").Path # Change this to the path you just installed into; by default it uses the current directory
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
 $soul = Join-Path $root "SOUL.md"
 $hook = Join-Path $root "session-start.ps1"
 $backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
@@ -158,7 +159,15 @@ Copy-Item -LiteralPath $soul -Destination $backup -Force
 try {
   Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $false
   Add-Content -LiteralPath $soul -Value "drift-test"
-  & pwsh -NoProfile -File $hook | Select-String -Pattern "SOUL.md 與 baseline 不符"
+  $output = (& pwsh -NoProfile -File $hook) | Out-String
+  $alarmFound = ($output -match "SOUL.md 與 baseline 不符") -or
+    (($output -match "baseline") -and ($output -match "expected="))
+  if ($alarmFound) {
+    Write-Output "DRIFT ALARM: PASS"
+  } else {
+    Write-Output "DRIFT ALARM: FAIL"
+    Write-Error "Drift alarm text was not detected."
+  }
 } finally {
   Copy-Item -LiteralPath $backup -Destination $soul -Force
   Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
