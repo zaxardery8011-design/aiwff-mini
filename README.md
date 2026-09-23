@@ -114,11 +114,31 @@ Rules while running:
 - What may it decide on its own, and what must it ask you about first?
 - In one sentence, what is the reason this brain exists? Put this in the soul anchor; it will see it on every turn.
 
+The installer leaves `SOUL.md` read-only, so clear that first: `Set-ItemProperty -LiteralPath "$HOME/.aiwff-mini/SOUL.md" -Name IsReadOnly -Value $false`.
+
 Organize the answers into the file, then **read it back for confirmation**.
 
-**Completion condition**: search the whole `SOUL.md` file. It is only active when there are no remaining `(to be filled in)` placeholders. If any remain, tell the human which section is unfinished and what that missing section affects.
+**Completion condition**: search the whole `SOUL.md` file. It is only active when there are no remaining `（待填）` placeholders (the installer copies the zh-TW template; the English template uses `(to be filled in)`). If any remain, tell the human which section is unfinished and what that missing section affects.
 
 Remind them: `SOUL.md` is loaded on every turn. **Do not put anything there that you do not want in the AI's context.**
+
+**Then re-sign the soul.** The installer signed the *empty* template, so after filling it the baseline no longer matches and every new chat would show the drift warning. Run this once, after the human has confirmed the content:
+
+```powershell
+pwsh -NoProfile -Command '
+  $root = "$HOME/.aiwff-mini"   # change if you installed elsewhere
+  $soul = Join-Path $root "SOUL.md"
+  $bl   = Join-Path $root ".soul_baseline/baseline.json"
+  Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
+  $j = Get-Content -LiteralPath $bl -Raw -Encoding UTF8 | ConvertFrom-Json
+  $e = $j.files | Where-Object { $_.name -eq "SOUL.md" }
+  $e.sha256 = (Get-FileHash -LiteralPath $soul -Algorithm SHA256).Hash.ToLowerInvariant()
+  $e.size   = (Get-Item -LiteralPath $soul).Length
+  ($j | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $bl -Encoding UTF8
+  "re-signed: " + $e.sha256.Substring(0,16)
+'
+```
+It locks `SOUL.md` read-only again and writes the new hash into `.soul_baseline/baseline.json`. Only re-sign changes the human asked for; that is the whole point of the guard.
 
 ### Step 5 - Acceptance Check
 

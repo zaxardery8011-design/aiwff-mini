@@ -114,11 +114,31 @@
 - 哪些事它可以自己決定，哪些一定要先問你？
 - **用一句話說，這台主腦存在的意義是什麼？**（填進「靈魂錨」，它每 turn 都會看到）
 
+安裝腳本會把 `SOUL.md` 設成唯讀，填之前先解開：`Set-ItemProperty -LiteralPath "$HOME/.aiwff-mini/SOUL.md" -Name IsReadOnly -Value $false`。
+
 把他的回答整理進去，寫完**唸一遍給他確認**。
 
 **收尾條件**：全檔搜尋 `SOUL.md`，**搜不到任何一個「（待填）」**才算啟用完成。還有殘留就告訴他哪一段沒填、那段漏了會怎樣。
 
 ⚠️ 提醒他：`SOUL.md` 每個 turn 都會被載入。**不想出現在 AI 上下文裡的東西，不要寫進去。**
+
+**填完要重新簽章。** 安裝時簽的是**空白樣板**，填完之後簽章一定對不上，之後每次開新對話都會跳漂移告警。他確認內容之後，跑一次：
+
+```powershell
+pwsh -NoProfile -Command '
+  $root = "$HOME/.aiwff-mini"   # change if you installed elsewhere
+  $soul = Join-Path $root "SOUL.md"
+  $bl   = Join-Path $root ".soul_baseline/baseline.json"
+  Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
+  $j = Get-Content -LiteralPath $bl -Raw -Encoding UTF8 | ConvertFrom-Json
+  $e = $j.files | Where-Object { $_.name -eq "SOUL.md" }
+  $e.sha256 = (Get-FileHash -LiteralPath $soul -Algorithm SHA256).Hash.ToLowerInvariant()
+  $e.size   = (Get-Item -LiteralPath $soul).Length
+  ($j | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $bl -Encoding UTF8
+  "re-signed: " + $e.sha256.Substring(0,16)
+'
+```
+它會把 `SOUL.md` 重新設回唯讀，並把新的 hash 寫進 `.soul_baseline/baseline.json`。只替使用者要求的改動重新簽章，這道防線的意義就在這裡。
 
 ### 步驟 5 — 驗收
 
