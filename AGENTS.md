@@ -108,13 +108,3 @@ Uninstall (README): `Remove-Item -Recurse -Force "$HOME/.aiwff-mini"`.
 6. **Add-on tools follow `TOOLS.zh-TW.md`**: own `INSTALL.md`, one-line removal, doctor with `live / broken / declined / stale`.
 
 守則：驗了才說完成、只增不改、不為過檢查改腳本、不隨手重跑安裝蓋掉填好的靈魂、靈魂內容用問的。
-
----
-
-## Known doc gaps (found while drafting, 2026-09-23)
-
-- English README Step 4 says search for `(to be filled in)`, but `install.ps1` copies `kit/SOUL.template.md` (繁中, `（待填）`). The `.en` templates are never installed.
-- README Step 5 says "run the install script's built-in self-check"; `install.ps1` has no separate self-check mode — checks only run as part of an install.
-- `tools/context-segments/INSTALL.md` treats an upstream `origin` remote as a stop hit and uses `payload/.dev-tree`; the top README says the remote is *not* a stop reason and uses `kit/.dev-tree`.
-
-已知文件落差：英文 README 佔位符字樣與實際安裝的繁中樣板不符；「內建自我檢查」無獨立模式；context-segments 的開發樹判準與主 README 相反。
