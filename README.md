@@ -1,6 +1,6 @@
 # aiwff-mini
 
-**A personal brain that runs on your own machine.** It has a soul, memory across chats, and guards that keep it from silently breaking its own identity.
+**A local file pack. You decide. AI does the work. Memory and identity stay in files on your machine.** It has a soul, memory across chats, and guards that keep it from silently breaking its own identity.
 
 This is not a chatbot wrapper or a prompt pack. It solves four concrete problems:
 
@@ -111,7 +111,7 @@ Rules while running:
 - What tone should it use with you?
 - What should it call you? "Boss", "Alex", or any other name is fine; this word is loaded on every turn.
 - When you say a certain phrase, what do you actually mean? This is the highest-value question.
-- What may it decide on its own, and what must it ask you about first?
+- What must it ask you before it acts?
 - In one sentence, what is the reason this brain exists? Put this in the soul anchor; it will see it on every turn.
 
 The installer leaves `SOUL.md` read-only, so clear that first: `Set-ItemProperty -LiteralPath "$HOME/.aiwff-mini/SOUL.md" -Name IsReadOnly -Value $false`.
@@ -153,7 +153,7 @@ After the soul is filled in, run the install script's built-in self-check, then 
 
 Then **start a new chat** and confirm that the beginning really includes the injected `SOUL.md` content. This is the only proof that the system has actually come alive.
 
-> Warning: **When starting the new chat, the working directory must be the install root**:
+> 驗收要寫成你正在用的那個工具。這版的注入範例目前只寫了 Claude Code。
 > ```
 > cd ~/.aiwff-mini
 > claude
