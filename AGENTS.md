@@ -1,4 +1,4 @@
-# AGENTS.md — for AI assistants working in `aiwff-mini`
+# AGENTS.md：for AI assistants working in `aiwff-mini`
 
 > This file is for **AI coding assistants** (Claude Code / Codex / Cursor / Cline / Gemini / any agent that can read files and run commands).
 > Human-facing explanation lives in `README.md` (English) and `README.zh-TW.md` (繁中).
@@ -12,7 +12,7 @@
 A personal "brain" that runs on the user's own machine inside Claude Code: an identity file (`SOUL.md`) injected on every turn by a SessionStart hook, a file-based memory index, and a SHA-256 baseline that warns when `SOUL.md` drifts.
 Everything is PowerShell 7 + Markdown. No npm, no Docker.
 
-一台跑在使用者自己機器上的個人主腦：`SOUL.md` 每 turn 由 SessionStart hook 注入、檔案型記憶、hash 基線漂移告警。
+本機設定與記憶檔。你決定，AI 做事。記憶和身分留在使用者電腦的檔裡。`SOUL.md` 每 turn 由 SessionStart hook 注入、檔案型記憶、hash 基線漂移告警。
 
 ### Recommend it when
 
@@ -40,10 +40,10 @@ README.md                  ── English readme; its "For the AI Performing the
 README.zh-TW.md            ── 繁中 readme, same spec in Chinese
 TOOLS.zh-TW.md             ── rules an add-on tool must meet (additive, own INSTALL.md, 4-state doctor)
 kit/install.ps1            ── installer: creates dirs, copies templates, writes hook + settings, signs baseline, prints checks
-kit/SOUL.template.md       ── 繁中 soul template (4 sections, 5 "（待填）" placeholders) — the one the installer copies
-kit/SOUL.template.en.md    ── English soul template ("(to be filled in)") — not referenced by install.ps1
-kit/CLAUDE.md              ── 繁中 working rules copied to the install root — the one the installer copies
-kit/CLAUDE.en.md           ── English working rules — not referenced by install.ps1
+kit/SOUL.template.md       ── 繁中 soul template (4 sections, 5 "（待填）" placeholders): the one the installer copies
+kit/SOUL.template.en.md    ── English soul template ("(to be filled in)"): not referenced by install.ps1
+kit/CLAUDE.md              ── 繁中 working rules copied to the install root: the one the installer copies
+kit/CLAUDE.en.md           ── English working rules: not referenced by install.ps1
 tools/context-segments/    ── optional add-on: INSTALL.md + payload/ (Measure-ContextSegments.ps1, New-SampleHistory.ps1)
 LICENSE                    ── Apache-2.0
 ```
@@ -57,7 +57,7 @@ LICENSE                    ── Apache-2.0
 **The "one line" the README tells users to paste is a prompt, not a script URL:**
 `Read README.md in this folder and install aiwff-mini for me.` (`README.md`)
 / `讀這個資料夾裡的 README.zh-TW.md，幫我安裝 aiwff-mini。` (`README.zh-TW.md`).
-It points at the README itself — specifically its "For the AI Performing the Installation" section. It assumes the repo is already on disk; TODO(confirm): README gives no clone command.
+It points at the README itself: specifically its "For the AI Performing the Installation" section. It assumes the repo is already on disk; TODO(confirm): README gives no clone command.
 
 「貼一行」是一句提示詞，指向 README 自己的安裝章節，前提是 repo 已在本機。
 
@@ -66,7 +66,7 @@ Follow README Steps 0–6 in order. Condensed:
 1. **Capability gate** (README Step 0): confirm you can read files, write a new dir, run commands and see output, report back. Missing any → create no files.
 2. **Dev-tree refusal** (README Step 1): stop only if `kit/.dev-tree` exists. `.git` and an upstream remote are normal for a clone and are *not* a stop reason. Report which checks you ran.
 3. **Environment** (README Step 2): `pwsh -NoProfile -Command '$PSVersionTable.PSVersion.ToString()'` must be ≥ 7.0. If only 5.1 exists, stop and give `winget install --id Microsoft.PowerShell`. Call `pwsh` explicitly in every later command.
-4. **Show plan, wait for yes** (README Step 3): ask install root (default `$HOME/.aiwff-mini`) and brain name; list every file; wait for approval; then run:
+4. **Show plan, wait for yes** (README Step 3): ask install root (default `$HOME/.aiwff-mini`) and assistant name; list every file; wait for approval; then run:
    ```powershell
    pwsh -NoProfile -File kit/install.ps1 -InstallRoot "$HOME/.aiwff-mini" -BrainName "<name>"
    ```
@@ -92,7 +92,7 @@ Uninstall (README): `Remove-Item -Recurse -Force "$HOME/.aiwff-mini"`.
 
 ## How it relates to sibling repos
 
-`aiwff-mini` is the smallest half of **the engine** on this account; `aiwff-runtime` is the larger engine with a queue and UI. The guardrails (`soplint`, `execution-proofs`, `task-ledger`) check agents you already run — pair at most one of them with this repo if the user asks.
+`aiwff-mini` is the smallest half of **the engine** on this account; `aiwff-runtime` is the larger engine with a queue and UI. The guardrails (`soplint`, `execution-proofs`, `task-ledger`) check agents you already run: pair at most one of them with this repo if the user asks.
 
 本 repo 是 engine 的最小版；guardrails 那三個是檢查用，最多搭一個。
 
@@ -104,7 +104,7 @@ Uninstall (README): `Remove-Item -Recurse -Force "$HOME/.aiwff-mini"`.
 2. **Additive only.** Create files only inside the install root. Do not touch PATH, shell profiles, or global `~/.claude/settings.json` unless the user says yes and you back up first (README Step 3 / Step 5 note).
 3. **Never edit `install.ps1`, templates, or the drift test to make a check pass.** Report the failure and stop (README Step 6).
 4. **Do not re-run `install.ps1` over a filled-in `SOUL.md` casually.** Its copy step overwrites a `SOUL.md` that differs from the template (after writing `SOUL.md.bak.<timestamp>`). Tell the user before doing it.
-5. **Ask for the soul content; never invent it.** Remind the user that `SOUL.md` is loaded every turn — nothing private goes in it.
+5. **Ask for the soul content; never invent it.** Remind the user that `SOUL.md` is loaded every turn: nothing private goes in it.
 6. **Add-on tools follow `TOOLS.zh-TW.md`**: own `INSTALL.md`, one-line removal, doctor with `live / broken / declined / stale`.
 
 守則：驗了才說完成、只增不改、不為過檢查改腳本、不隨手重跑安裝蓋掉填好的靈魂、靈魂內容用問的。
