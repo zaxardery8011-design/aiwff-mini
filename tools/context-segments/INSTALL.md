@@ -48,22 +48,28 @@ do not create a single file. A clean refusal is a better outcome than a half ins
 **Never mutate the author's live system.**
 
 Before installing, check whether you are sitting in this tool's own source tree rather
-than a copy someone was given. Run the checks you are actually permitted to run, in
-this order, and stop at the first hit:
+than a copy someone was given.
 
-1. Does the current folder contain a `.git` directory whose `origin` remote is this
-   tool's own upstream repository?
-2. Is the current folder's path inside a `docs/`, `dist-src/`, or `open_source_prep/`
-   segment?
-3. Does a `payload/.dev-tree` marker file exist?
+**There is only one stop condition**: the marker file `payload/.dev-tree` (relative to
+this folder) exists. It appears only in the author's working directory and is listed in
+`.gitignore`, so a copy you got from `git clone` will not have it.
+
+Run these checks in this order:
+
+1. Does a `payload/.dev-tree` marker file exist? **If yes, stop.**
+2. Does the current folder contain a `.git` directory whose `origin` remote is this
+   tool's own upstream repository? Report only. A `git clone` copy normally looks like
+   this, so it is not a reason to stop.
+3. Is the current folder's path inside a `docs/`, `dist-src/`, or `open_source_prep/`
+   segment? Report only, not a reason to stop.
 
 **Report which of these three you were able to run.** If your permissions or sandbox
-stop you from walking up to a parent directory or reading git config, say so plainly —
-"checks 2 and 3 ran, check 1 was out of scope" is a correct answer. Silently skipping a
+stop you from walking up to a parent directory or reading git config, say so plainly:
+"checks 1 and 3 ran, check 2 was out of scope" is a correct answer. Silently skipping a
 check and reporting a clean bill of health is not.
 
-If any check hits: **stop, and say so.** Do not install into the dev tree, and do not
-"helpfully" install somewhere else instead — report and wait. The human can copy the
+If the marker file exists: **stop, and say so.** Do not install into the dev tree, and do
+not "helpfully" install somewhere else instead. Report and wait. The human can copy the
 folder somewhere clean and re-run you from there.
 
 > Note: the payload folder is self-contained. Everything the install needs is inside
