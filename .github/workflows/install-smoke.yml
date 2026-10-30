@@ -1,0 +1,201 @@
+name: install-smoke
+
+# Runs the README install flow verbatim on a hosted Windows runner.
+# Commands in steps a, d, e, f and g are copies of README.md and
+# tools/context-segments/INSTALL.md. If those files change, change this file too.
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  install-smoke:
+    runs-on: windows-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        shell: pwsh
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: a. Install (README step 3)
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          $out =    pwsh -NoProfile -File kit/install.ps1 -InstallRoot "$HOME/.aiwff-mini" -BrainName "smoke-test"
+              | Out-String
+          $code = $LASTEXITCODE
+          Write-Output $out
+          if ($code -ne 0) { throw "install.ps1 exited with $code" }
+          # b. Exit 0 and five green checks under the acceptance header (U+9A57 U+6536 U+7D50 U+679C)
+          $lines = $out -split "\r?\n"
+          $idx = [array]::IndexOf($lines, [regex]::Unescape('驗收結果'))
+          if ($idx -lt 0) { throw "acceptance header not found in installer output" }
+          $checks = @($lines[($idx + 1)..($idx + 5)])
+          $green = [string][char]0x2705
+          $bad = @($checks | Where-Object { -not $_.StartsWith($green) })
+          if ($checks.Count -ne 5 -or $bad.Count -gt 0) { throw "expected five green checks, got: $($checks -join ' | ')" }
+          Write-Output "installer: exit 0 and five green checks"
+
+      - name: c. Unlock SOUL.md and fill placeholders with fake content
+        run: |
+          $soul = "$HOME/.aiwff-mini/SOUL.md"
+          Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $false
+          $placeholder = [regex]::Unescape('（待填）')
+          $text = Get-Content -LiteralPath $soul -Raw -Encoding UTF8
+          if (-not $text.Contains($placeholder)) { throw "no placeholder found in SOUL.md" }
+          $text = $text.Replace($placeholder, "fake content for smoke test")
+          if ($text.Contains($placeholder)) { throw "placeholder still present" }
+          Set-Content -LiteralPath $soul -Value $text -Encoding UTF8 -NoNewline
+          Write-Output "SOUL.md filled with fake content"
+
+      - name: d. Re-sign (README step 4)
+        run: |
+          $out = pwsh -NoProfile -Command '
+            $root = "$HOME/.aiwff-mini"   # change if you installed elsewhere
+            $soul = Join-Path $root "SOUL.md"
+            $bl   = Join-Path $root ".soul_baseline/baseline.json"
+            Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
+            $j = Get-Content -LiteralPath $bl -Raw -Encoding UTF8 | ConvertFrom-Json
+            $e = $j.files | Where-Object { $_.name -eq "SOUL.md" }
+            $e.sha256 = (Get-FileHash -LiteralPath $soul -Algorithm SHA256).Hash.ToLowerInvariant()
+            $e.size   = (Get-Item -LiteralPath $soul).Length
+            ($j | ConvertTo-Json -Depth 10) | Set-Content -LiteralPath $bl -Encoding UTF8
+            "re-signed: " + $e.sha256.Substring(0,16)
+          '
+          $code = $LASTEXITCODE
+          Write-Output $out
+          if ($code -ne 0) { throw "re-sign exited with $code" }
+          if (-not ($out | Out-String).Contains("re-signed: ")) { throw "re-sign did not print its result line" }
+
+      - name: e. Read-only acceptance (README step 5, checks 1 to 5)
+        run: |
+          $out = pwsh -NoProfile -Command '
+          $root = "$HOME/.aiwff-mini" # Change this line if you installed somewhere else
+          $soul = Join-Path $root "SOUL.md"
+          $checks = [ordered]@{
+            "1. directory structure" = { -not (@("memory", ".soul_baseline", ".claude") | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_) -PathType Container) }) }
+            "2. SOUL.md is read-only" = { (Get-Item -LiteralPath $soul).IsReadOnly }
+            "3. baseline hash matches SOUL.md" = {
+              $j = Get-Content -LiteralPath (Join-Path $root ".soul_baseline/baseline.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+              $e = @($j.files | Where-Object { $_.name -eq "SOUL.md" }) | Select-Object -First 1
+              ([string]$e.sha256).ToLowerInvariant() -eq (Get-FileHash -LiteralPath $soul -Algorithm SHA256).Hash.ToLowerInvariant()
+            }
+            "4. SessionStart hook points to session-start.ps1" = {
+              $s = Get-Content -LiteralPath (Join-Path $root ".claude/settings.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+              @($s.hooks.SessionStart.hooks | Where-Object { $_.command -match "session-start\.ps1" }).Count -gt 0
+            }
+            "5. memory index exists" = { Test-Path -LiteralPath (Join-Path $root "memory/MEMORY.md") -PathType Leaf }
+          }
+          $failed = 0
+          foreach ($name in $checks.Keys) {
+            $ok = $false
+            try { $ok = [bool](& $checks[$name]) } catch {}
+            if ($ok) { "PASS: $name" } else { "FAIL: $name"; $failed++ }
+          }
+          if ($failed -gt 0) { exit 1 }
+          '
+          $code = $LASTEXITCODE
+          Write-Output $out
+          if ($code -ne 0) { throw "acceptance command exited with $code" }
+          $pass = @($out | Where-Object { $_ -like "PASS: *" })
+          if ($pass.Count -ne 5) { throw "expected 5 PASS lines, got $($pass.Count)" }
+          if (@($out | Where-Object { $_ -like "FAIL: *" }).Count -gt 0) { throw "a check printed FAIL" }
+
+      - name: f. Drift self-test (README step 5, check 6)
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          # stdin is closed on purpose: session-start.ps1 reads stdin to the end when it is redirected
+          $out = $null | pwsh -NoProfile -Command '
+          $root = "$HOME/.aiwff-mini" # Change this line if you installed somewhere else
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 # Keeps Chinese drift warnings readable; detection still has an ASCII fallback below.
+          $soul = Join-Path $root "SOUL.md"
+          $hook = Join-Path $root "session-start.ps1"
+          if (-not (Test-Path -LiteralPath $soul)) {
+            Write-Output ("SETUP ERROR: Cannot find {0}. Change `$root to the path you just installed into." -f $soul)
+            return
+          }
+          $resolvedRoot = (Resolve-Path -LiteralPath $root).Path
+          $brainName = "(unknown)"
+          try {
+            $blJson = Get-Content -LiteralPath (Join-Path $root ".soul_baseline/baseline.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+            if ($blJson.brain_name) { $brainName = [string]$blJson.brain_name }
+          } catch {}
+          Write-Output ("TESTING ROOT: {0}" -f $resolvedRoot)
+          Write-Output ("TESTING BRAIN: {0}" -f $brainName)
+          $backup = Join-Path ([System.IO.Path]::GetTempPath()) ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
+          Copy-Item -LiteralPath $soul -Destination $backup -Force
+          try {
+            Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $false
+            Add-Content -LiteralPath $soul -Value "drift-test"
+            $output = (& pwsh -NoProfile -File $hook) | Out-String
+            $alarmFound = ($output -match "SOUL.md 與 baseline 不符") -or
+              # Do not remove: this ASCII fallback is what survives non-UTF-8 parent shells.
+              (($output -match "baseline") -and ($output -match "expected="))
+            if ($alarmFound) {
+              Write-Output "DRIFT ALARM: PASS"
+            } else {
+              Write-Output "DRIFT ALARM: FAIL"
+              Write-Error "Drift alarm text was not detected."
+            }
+          } finally {
+            Copy-Item -LiteralPath $backup -Destination $soul -Force
+            Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $true
+            Remove-Item -LiteralPath $backup -Force
+          }'
+          $code = $LASTEXITCODE
+          Write-Output $out
+          if ($code -ne 0) { throw "drift self-test exited with $code" }
+          if (-not (($out | Out-String).Contains("DRIFT ALARM: PASS"))) { throw "DRIFT ALARM: PASS not found" }
+
+      - name: g. context-segments (tools/context-segments/INSTALL.md)
+        run: |
+          [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+          # Step 1: the only stop condition is the marker file
+          if (Test-Path -LiteralPath "tools/context-segments/payload/.dev-tree") { throw "dev-tree marker present" }
+          # Step 2: payload present
+          foreach ($f in "Measure-ContextSegments.ps1", "New-SampleHistory.ps1") {
+            if (-not (Test-Path -LiteralPath "tools/context-segments/payload/$f" -PathType Leaf)) { throw "missing payload/$f" }
+          }
+          # Step 3: apply (copy payload into the install root)
+          $cs = "$HOME/.context-segments"
+          New-Item -ItemType Directory -Path $cs -Force | Out-Null
+          Copy-Item -LiteralPath "tools/context-segments/payload/Measure-ContextSegments.ps1", "tools/context-segments/payload/New-SampleHistory.ps1" -Destination $cs
+          # Step 4: generate the sample
+          pwsh -NoProfile -File "$HOME/.context-segments/New-SampleHistory.ps1" -OutPath "$HOME/.context-segments/sample.jsonl"
+          if ($LASTEXITCODE -ne 0) { throw "sample generator exited with $LASTEXITCODE" }
+          $size = (Get-Item -LiteralPath "$cs/sample.jsonl").Length
+          Write-Output "sample.jsonl bytes: $size"
+          if ($size -le 0) { throw "sample.jsonl is empty" }
+          # Step 5: acceptance run
+          $md = pwsh -NoProfile -File "$HOME/.context-segments/Measure-ContextSegments.ps1" -HistoryPath "$HOME/.context-segments/sample.jsonl" -OutputJsonl "$HOME/.context-segments/measure.jsonl" | Out-String
+          $code = $LASTEXITCODE
+          Write-Output $md
+          if ($code -ne 0) { throw "check 1 failed: exit code $code" }
+          if (-not $md.Contains("## Summary")) { throw "check 2 failed: no '## Summary' heading" }
+          if (-not $md.Contains("## Top 10 largest segments")) { throw "check 3 failed: no '## Top 10 largest segments' heading" }
+          $jl = @(Get-Content -LiteralPath "$cs/measure.jsonl" -Encoding UTF8 | Where-Object { $_.Trim() })
+          if ($jl.Count -ne 1) { throw "check 4 failed: measure.jsonl has $($jl.Count) lines, expected 1" }
+          $row = $jl[0] | ConvertFrom-Json
+          foreach ($k in "turn_count", "total_bytes", "total_tokens_est", "large_segments", "reference_count") {
+            if (-not $row.PSObject.Properties[$k]) { throw "check 4 failed: key $k missing" }
+          }
+          Write-Output ("last measure.jsonl line: " + $jl[0])
+          # Second run: the summary appends
+          pwsh -NoProfile -File "$HOME/.context-segments/Measure-ContextSegments.ps1" -HistoryPath "$HOME/.context-segments/sample.jsonl" -OutputJsonl "$HOME/.context-segments/measure.jsonl" | Out-Null
+          if ($LASTEXITCODE -ne 0) { throw "second run exited with $LASTEXITCODE" }
+          $n = @(Get-Content -LiteralPath "$cs/measure.jsonl" -Encoding UTF8 | Where-Object { $_.Trim() }).Count
+          if ($n -ne 2) { throw "measure.jsonl has $n lines after two runs, expected 2" }
+          # Missing path: non-zero exit with a readable error, no new line
+          $err = pwsh -NoProfile -File "$cs/Measure-ContextSegments.ps1" -HistoryPath "$cs/does-not-exist.jsonl" -OutputJsonl "$cs/measure.jsonl" 2>&1 | Out-String
+          $errCode = $LASTEXITCODE
+          Write-Output "missing path exit code: $errCode"
+          Write-Output $err
+          if ($errCode -eq 0) { throw "missing path exited 0" }
+          if (-not $err.Contains("HistoryPath not found")) { throw "missing path gave no readable error" }
+          $n = @(Get-Content -LiteralPath "$cs/measure.jsonl" -Encoding UTF8 | Where-Object { $_.Trim() }).Count
+          if ($n -ne 2) { throw "measure.jsonl changed on a failed run: $n lines" }
+          # the expected failure above must not become the step exit code
+          $global:LASTEXITCODE = 0
