@@ -122,8 +122,7 @@ This package ships a generator rather than a fixture, so the sample is rebuilt o
 machine instead of shipped as a blob:
 
 ```
-pwsh -NoProfile -File "$HOME/.context-segments/New-SampleHistory.ps1" \
-  -OutPath "$HOME/.context-segments/sample.jsonl"
+pwsh -NoProfile -File "$HOME/.context-segments/New-SampleHistory.ps1" -OutPath "$HOME/.context-segments/sample.jsonl"
 ```
 
 The generator is deterministic — same input, same bytes, every machine. Report the
@@ -135,9 +134,7 @@ machine's, that is a real finding, not noise.
 Run the tool against the sample you just generated:
 
 ```
-pwsh -NoProfile -File "$HOME/.context-segments/Measure-ContextSegments.ps1" \
-  -HistoryPath "$HOME/.context-segments/sample.jsonl" \
-  -OutputJsonl "$HOME/.context-segments/measure.jsonl"
+pwsh -NoProfile -File "$HOME/.context-segments/Measure-ContextSegments.ps1" -HistoryPath "$HOME/.context-segments/sample.jsonl" -OutputJsonl "$HOME/.context-segments/measure.jsonl"
 ```
 
 It must satisfy **all** of the following. Check each one and say which held:
