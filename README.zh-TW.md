@@ -142,7 +142,7 @@ pwsh -NoProfile -Command '
 
 ### 步驟 5：驗收
 
-填完靈魂後，跑安裝腳本內建的自我檢查，再跑下面的漂移自測。六項都要通過：
+填完靈魂後，第 1 到 5 項用下面的唯讀驗收指令，第 6 項用漂移自測。六項都要通過：
 
 1. 目錄結構建好了
 2. `SOUL.md` 設成唯讀
@@ -150,6 +150,38 @@ pwsh -NoProfile -Command '
 4. SessionStart hook 設定好了
 5. 記憶索引檔建好了
 6. 漂移告警真的會觸發：先備份 `SOUL.md`，改一個字，跑 hook 看到 hash 不符告警，再還原
+
+第 1 到 5 項用這段指令。它是唯讀的：不寫任何檔，也不呼叫 `install.ps1`。每項印出 PASS 或 FAIL，任何一項 FAIL 就以非零代碼退出。
+
+```powershell
+pwsh -NoProfile -Command '
+$root = "$HOME/.aiwff-mini" # 裝在別處請改這行
+$soul = Join-Path $root "SOUL.md"
+$checks = [ordered]@{
+  "1. directory structure" = { -not (@("memory", ".soul_baseline", ".claude") | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_) -PathType Container) }) }
+  "2. SOUL.md is read-only" = { (Get-Item -LiteralPath $soul).IsReadOnly }
+  "3. baseline hash matches SOUL.md" = {
+    $j = Get-Content -LiteralPath (Join-Path $root ".soul_baseline/baseline.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    $e = @($j.files | Where-Object { $_.name -eq "SOUL.md" }) | Select-Object -First 1
+    ([string]$e.sha256).ToLowerInvariant() -eq (Get-FileHash -LiteralPath $soul -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  "4. SessionStart hook points to session-start.ps1" = {
+    $s = Get-Content -LiteralPath (Join-Path $root ".claude/settings.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    @($s.hooks.SessionStart.hooks | Where-Object { $_.command -match "session-start\.ps1" }).Count -gt 0
+  }
+  "5. memory index exists" = { Test-Path -LiteralPath (Join-Path $root "memory/MEMORY.md") -PathType Leaf }
+}
+$failed = 0
+foreach ($name in $checks.Keys) {
+  $ok = $false
+  try { $ok = [bool](& $checks[$name]) } catch {}
+  if ($ok) { "PASS: $name" } else { "FAIL: $name"; $failed++ }
+}
+if ($failed -gt 0) { exit 1 }
+'
+```
+
+**填好靈魂之後，不要重跑 `install.ps1`。** 安裝腳本沒有獨立的檢查模式，它印出的五個 ✅ 只代表安裝當下的狀態。重跑會把空白樣板蓋回你填好的 `SOUL.md`（會先留 `SOUL.md.bak.<時間戳>`），並對空白樣板重新簽章。
 
 然後**開一個新對話**，確認開頭真的有 `SOUL.md` 的內容被注入。這是唯一能證明它真的活起來的方法。
 

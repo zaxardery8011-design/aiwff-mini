@@ -142,7 +142,7 @@ It locks `SOUL.md` read-only again and writes the new hash into `.soul_baseline/
 
 ### Step 5 - Acceptance Check
 
-After the soul is filled in, run the install script's built-in self-check, then run the drift self-test below. All six checks must pass:
+After the soul is filled in, run the read-only acceptance command below for checks 1 to 5, then run the drift self-test for check 6. All six checks must pass:
 
 1. Directory structure exists
 2. `SOUL.md` is read-only
@@ -150,6 +150,38 @@ After the soul is filled in, run the install script's built-in self-check, then 
 4. SessionStart hook is configured
 5. Memory index file exists
 6. Drift warning is proven by a temporary change to `SOUL.md`, followed by a restore
+
+Checks 1 to 5 use this command. It is read-only: it writes no file and does not call `install.ps1`. It prints PASS or FAIL for each check and exits non-zero if any check fails.
+
+```powershell
+pwsh -NoProfile -Command '
+$root = "$HOME/.aiwff-mini" # Change this line if you installed somewhere else
+$soul = Join-Path $root "SOUL.md"
+$checks = [ordered]@{
+  "1. directory structure" = { -not (@("memory", ".soul_baseline", ".claude") | Where-Object { -not (Test-Path -LiteralPath (Join-Path $root $_) -PathType Container) }) }
+  "2. SOUL.md is read-only" = { (Get-Item -LiteralPath $soul).IsReadOnly }
+  "3. baseline hash matches SOUL.md" = {
+    $j = Get-Content -LiteralPath (Join-Path $root ".soul_baseline/baseline.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    $e = @($j.files | Where-Object { $_.name -eq "SOUL.md" }) | Select-Object -First 1
+    ([string]$e.sha256).ToLowerInvariant() -eq (Get-FileHash -LiteralPath $soul -Algorithm SHA256).Hash.ToLowerInvariant()
+  }
+  "4. SessionStart hook points to session-start.ps1" = {
+    $s = Get-Content -LiteralPath (Join-Path $root ".claude/settings.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+    @($s.hooks.SessionStart.hooks | Where-Object { $_.command -match "session-start\.ps1" }).Count -gt 0
+  }
+  "5. memory index exists" = { Test-Path -LiteralPath (Join-Path $root "memory/MEMORY.md") -PathType Leaf }
+}
+$failed = 0
+foreach ($name in $checks.Keys) {
+  $ok = $false
+  try { $ok = [bool](& $checks[$name]) } catch {}
+  if ($ok) { "PASS: $name" } else { "FAIL: $name"; $failed++ }
+}
+if ($failed -gt 0) { exit 1 }
+'
+```
+
+**Do not re-run `install.ps1` after the soul is filled in.** The installer has no separate check mode; its five ✅ lines only describe the moment of installation. Running it again copies the blank template over your filled `SOUL.md` (after saving `SOUL.md.bak.<timestamp>`) and signs the blank template again.
 
 Then **start a new chat** and confirm that the beginning really includes the injected `SOUL.md` content. This is the only proof that the system has actually come alive.
 

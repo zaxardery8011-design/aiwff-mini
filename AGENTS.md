@@ -73,14 +73,14 @@ Follow README Steps 0–6 in order. Condensed:
    `-BrainName` is mandatory.
 5. **Fill the soul by asking, not guessing** (README Step 4): completion = no placeholder left in `SOUL.md`. Note the installed template is the 繁中 one, so the placeholder text is `（待填）`.
    `SOUL.md` is set read-only and baseline-signed *during* install, on the empty template. So: clear read-only before editing, and after the human confirms the content, run the **re-sign** block in README Step 4 (it re-locks the file and writes the new hash). Skip it and every new chat shows the drift warning.
-6. **Acceptance** (README Step 5): the installer prints five ✅/❌ checks and exits 1 if any fail; the sixth check is README's drift self-test script (expects `DRIFT ALARM: PASS`).
+6. **Acceptance** (README Step 5): checks 1 to 5 are README's read-only acceptance command (prints PASS/FAIL per check, exits 1 if any fail, writes nothing, never calls `install.ps1`); the sixth check is README's drift self-test script (expects `DRIFT ALARM: PASS`). Do not re-run `install.ps1` after the soul is filled in.
 7. **Report** (README Step 6) in the order README lists.
 
 步驟照 README 0–6 走；安裝指令只有一條 `pwsh -NoProfile -File kit/install.ps1 ...`。
 
 ### Self-verify
 
-- Installer output ends with five lines under `驗收結果` and exit code 0. Quote them.
+- Right after install: installer output ends with five lines under `驗收結果` and exit code 0. Quote them. After the soul is filled in: run README's read-only acceptance command and quote its five PASS lines.
 - Run README's drift self-test verbatim; quote `TESTING ROOT:` and `DRIFT ALARM: PASS`.
 - Start a new chat **from the install root** (`cd ~/.aiwff-mini` then `claude`) and confirm the opening context contains `SOUL.md`. README calls this "the only proof that the system has actually come alive."
 
