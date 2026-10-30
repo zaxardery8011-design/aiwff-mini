@@ -220,14 +220,13 @@ if (-not (Test-Path -LiteralPath $soul)) {
   return
 }
 $resolvedRoot = (Resolve-Path -LiteralPath $root).Path
-$titleLine = Get-Content -LiteralPath $soul -Encoding UTF8 | Where-Object { $_ -match "^\s*#+\s*(.+)\s*$" } | Select-Object -First 1
-$brainTitle = "(no title)"
-if ($titleLine -and ($titleLine -match "^\s*#+\s*(.+)\s*$")) {
-  $brainTitle = $Matches[1].Trim()
-  if (-not $brainTitle) { $brainTitle = "(no title)" }
-}
+$brainName = "(unknown)"
+try {
+  $blJson = Get-Content -LiteralPath (Join-Path $root ".soul_baseline/baseline.json") -Raw -Encoding UTF8 | ConvertFrom-Json
+  if ($blJson.brain_name) { $brainName = [string]$blJson.brain_name }
+} catch {}
 Write-Output ("受測根目錄：{0}" -f $resolvedRoot)
-Write-Output ("受測大腦：{0}" -f $brainTitle)
+Write-Output ("受測大腦：{0}" -f $brainName)
 $backup = Join-Path ([System.IO.Path]::GetTempPath()) ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
 Copy-Item -LiteralPath $soul -Destination $backup -Force
 try {
