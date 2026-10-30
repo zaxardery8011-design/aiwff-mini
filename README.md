@@ -228,7 +228,7 @@ if ($titleLine -and ($titleLine -match "^\s*#+\s*(.+)\s*$")) {
 }
 Write-Output ("TESTING ROOT: {0}" -f $resolvedRoot)
 Write-Output ("TESTING BRAIN: {0}" -f $brainTitle)
-$backup = Join-Path $env:TEMP ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
+$backup = Join-Path ([System.IO.Path]::GetTempPath()) ("SOUL.aiwff-mini." + [guid]::NewGuid().ToString("N") + ".md")
 Copy-Item -LiteralPath $soul -Destination $backup -Force
 try {
   Set-ItemProperty -LiteralPath $soul -Name IsReadOnly -Value $false
