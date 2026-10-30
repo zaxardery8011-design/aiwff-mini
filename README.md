@@ -194,12 +194,12 @@ if ($failed -gt 0) { exit 1 }
 
 Then **start a new chat** and confirm that the beginning really includes the injected `SOUL.md` content. This is the only proof that the system has actually come alive.
 
-> 驗收要寫成你正在用的那個工具。這版的注入範例目前只寫了 Claude Code。
+> The new-chat check below is written for Claude Code only. If you use a different tool, adapt it to that tool.
 > ```
 > cd ~/.aiwff-mini
 > claude
 > ```
-> Open Claude Code in `~/.aiwff-mini/`（開在 `~/.aiwff-mini/`）. You can verify the directory before starting it with:
+> Open Claude Code in `~/.aiwff-mini/`. You can verify the directory before starting it with:
 > ```powershell
 > pwsh -NoProfile -Command '(Resolve-Path "$HOME/.aiwff-mini").Path'
 > ```
