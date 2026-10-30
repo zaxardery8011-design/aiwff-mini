@@ -57,7 +57,7 @@ LICENSE                    ── Apache-2.0
 **The "one line" the README tells users to paste is a prompt, not a script URL:**
 `Read README.md in this folder and install aiwff-mini for me.` (`README.md`)
 / `讀這個資料夾裡的 README.zh-TW.md，幫我安裝 aiwff-mini。` (`README.zh-TW.md`).
-It points at the README itself: specifically its "For the AI Performing the Installation" section. It assumes the repo is already on disk; TODO(confirm): README gives no clone command.
+It points at the README itself: specifically its "For the AI Performing the Installation" section. It assumes the repo is already on disk; README's Install section gives the `git clone` command (or Download ZIP).
 
 「貼一行」是一句提示詞，指向 README 自己的安裝章節，前提是 repo 已在本機。
 

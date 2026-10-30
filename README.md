@@ -15,7 +15,16 @@ This is not a chatbot wrapper or a prompt pack. It solves four concrete problems
 
 ## Install
 
-Paste this into your AI tool (Claude Code, Codex, Cursor, Cline, Gemini, or similar):
+First get this folder onto your machine:
+
+```
+git clone https://github.com/zaxardery8011-design/aiwff-mini.git
+cd aiwff-mini
+```
+
+No git? On the repository page choose Code, then Download ZIP, and unzip it.
+
+Then open your AI tool (Claude Code, Codex, Cursor, Cline, Gemini, or similar) in that folder and paste this into it:
 
 ```
 Read README.md in this folder and install aiwff-mini for me.

@@ -15,7 +15,16 @@
 
 ## 安裝
 
-把這句貼給你的 AI（Claude Code、Codex、Cursor、Cline、Gemini 都可以）：
+先把這個資料夾取到你的電腦上：
+
+```
+git clone https://github.com/zaxardery8011-design/aiwff-mini.git
+cd aiwff-mini
+```
+
+沒有 git 的話，到 repo 頁面選 Code，再選 Download ZIP，解壓縮即可。
+
+然後在這個資料夾裡開你的 AI 工具（Claude Code、Codex、Cursor、Cline、Gemini 都可以），把這句貼給它：
 
 ```
 讀這個資料夾裡的 README.zh-TW.md，幫我安裝 aiwff-mini。
